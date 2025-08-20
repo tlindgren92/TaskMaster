@@ -6,8 +6,10 @@ import { TodoService } from '../../core/services/todo.service';
 import { Todo, Priority, TodoFilters } from '../../models/todo.model';
 import { TodoItemComponent } from '../todo-item/todo-item.component';
 import { TodoFormComponent } from '../todo-form/todo-form.component';
-import { TodoFiltersComponent } from '../todo-filters/todo-filters.component';
-import { TodoStatsComponent } from '../todo-stats/todo-stats.component';
+import { UiToolbarComponent } from '../ui-toolbar/ui-toolbar.component';
+import { UiFiltersDrawerComponent } from '../ui-filters-drawer/ui-filters-drawer.component';
+import { TodoStatsCompactComponent } from '../todo-stats-compact/todo-stats-compact.component';
+import { UiPreferencesService } from '../../core/services/ui-preferences.service';
 
 @Component({
   selector: 'app-todo-list',
@@ -17,8 +19,9 @@ import { TodoStatsComponent } from '../todo-stats/todo-stats.component';
     FormsModule,
     TodoItemComponent,
     TodoFormComponent,
-    TodoFiltersComponent,
-    TodoStatsComponent
+    UiToolbarComponent,
+    UiFiltersDrawerComponent,
+    TodoStatsCompactComponent
   ],
   templateUrl: './todo-list.component.html',
   styleUrls: ['./todo-list.component.css']
@@ -32,9 +35,11 @@ export class TodoListComponent implements OnInit, OnDestroy {
   selectedCategory = '';
   categories: string[] = [];
 
+  filtersOpen = false;
+
   private destroy$ = new Subject<void>();
 
-  constructor(private todoService: TodoService) {}
+  constructor(private todoService: TodoService, public ui: UiPreferencesService) {}
 
   ngOnInit(): void {
     this.todoService.filteredTodos$

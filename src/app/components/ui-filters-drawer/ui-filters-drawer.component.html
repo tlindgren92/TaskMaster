@@ -1,0 +1,14 @@
+<div *ngIf="open" class="fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-black/30" (click)="close.emit()"></div>
+  <aside class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl border-l border-gray-200 p-4 overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold text-gray-800">Filtros</h2>
+      <button (click)="close.emit()" class="p-2 rounded hover:bg-gray-100">✕</button>
+    </div>
+    <app-todo-filters
+      [categories]="categories"
+      (filtersChange)="filtersChange.emit($event)"
+      (clearFilters)="clearFilters.emit()"
+    ></app-todo-filters>
+  </aside>
+</div>
