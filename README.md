@@ -1,235 +1,118 @@
-# TaskMaster - Aplicación de Gestión de Tareas
+## TaskMaster — Gestor de tareas moderno
 
-Una aplicación moderna y profesional para la gestión de tareas, construida con Angular 19 y diseñada para ser convertida en una aplicación móvil con Capacitor.
+TaskMaster es una app de tareas innovadora y sobria, creada con Angular 19 y preparada para ejecutarse como app móvil nativa mediante Capacitor. Su arquitectura modular aplica SOLID y el patrón Repository para facilitar mantenimiento y futura conexión a API.
 
-## 🚀 Características
+### Características clave
+- Gestión de tareas con título, descripción, prioridad, categoría y fechas
+- Filtros avanzados y búsqueda en tiempo real
+- Estadísticas compactas y sección de completadas colapsable (divulgación progresiva)
+- UI responsive con Tailwind CSS v4
+- Preparada para Android/iOS con Capacitor
 
-### ✨ Funcionalidades Principales
-- **Gestión completa de tareas** con título, descripción, prioridad y categorías
-- **Sistema de prioridades** (Baja, Media, Alta, Urgente) con indicadores visuales
-- **Categorización** de tareas para mejor organización
-- **Fechas límite** con alertas de vencimiento
-- **Filtros avanzados** por estado, prioridad, categoría y búsqueda de texto
-- **Estadísticas en tiempo real** del progreso de tareas
-- **Interfaz responsive** optimizada para móviles y desktop
+## Especificaciones del proyecto
+- Angular 19 (standalone components)
+- TypeScript, RxJS
+- Tailwind CSS v4 (import v4 en `styles.css`)
+- Persistencia local con LocalStorage
+- Patrón Repository + SOLID
+- Compatibilidad Capacitor (android/ios)
 
-### 🎨 Diseño y UX
-- **Diseño moderno y sobrio** con gradientes sutiles
-- **Animaciones fluidas** y transiciones suaves
-- **Indicadores visuales** para prioridades y estados
-- **Modo oscuro** preparado para futuras implementaciones
-- **Accesibilidad** con soporte para lectores de pantalla
-
-### 🏗️ Arquitectura
-- **Patrón Repository** para abstracción de datos
-- **Principios SOLID** aplicados en toda la estructura
-- **Servicios centralizados** para lógica de negocio
-- **Componentes reutilizables** y modulares
-- **Preparado para Capacitor** para conversión a app móvil
-
-## 🛠️ Tecnologías Utilizadas
-
-- **Angular 19** - Framework principal
-- **TypeScript** - Lenguaje de programación
-- **Tailwind CSS v4** - Framework de estilos
-- **RxJS** - Programación reactiva
-- **LocalStorage** - Persistencia de datos local
-
-## 📁 Estructura del Proyecto
-
+## Estructura principal
 ```
 src/
-├── app/
-│   ├── components/           # Componentes de la interfaz
-│   │   ├── todo-list/       # Lista principal de tareas
-│   │   ├── todo-item/       # Item individual de tarea
-│   │   ├── todo-form/       # Formulario de creación/edición
-│   │   ├── todo-filters/    # Filtros y búsqueda
-│   │   └── todo-stats/      # Estadísticas y métricas
-│   ├── core/                # Lógica de negocio centralizada
-│   │   ├── interfaces/      # Interfaces y contratos
-│   │   ├── repositories/    # Implementaciones de repositorios
-│   │   ├── services/        # Servicios de aplicación
-│   │   └── providers/       # Configuración de inyección
-│   └── models/              # Modelos de datos
-├── styles.css               # Estilos globales
-└── main.ts                  # Punto de entrada
+├─ app/
+│  ├─ components/
+│  │  ├─ todo-list/
+│  │  ├─ todo-item/
+│  │  ├─ todo-form/
+│  │  ├─ todo-filters/
+│  │  ├─ todo-stats/
+│  │  ├─ todo-stats-compact/      # chips de estadísticas
+│  │  ├─ ui-toolbar/              # toolbar sticky
+│  │  └─ ui-filters-drawer/       # drawer lateral de filtros
+│  ├─ core/
+│  │  ├─ interfaces/
+│  │  ├─ repositories/
+│  │  ├─ services/
+│  │  │  └─ ui-preferences.service.ts   # preferencias UI (persistencia)
+│  │  └─ providers/
+│  └─ models/
+└─ styles.css
 ```
 
-## 🚀 Instalación y Uso
-
-### Prerrequisitos
-- Node.js 18+ 
-- npm o yarn
-
-### Instalación
+## Instalación y scripts
 ```bash
-# Clonar el repositorio
-git clone <repository-url>
-cd todo-app
-
 # Instalar dependencias
 npm install
 
-# Ejecutar en modo desarrollo
+# Desarrollo
 npm start
 
-# Construir para producción
-npm run build
+# Build producción (Angular)
+npm run build:prod
+
+# Otros scripts útiles
+npm run build          # build estándar
+npm run watch          # build en watch
+npm test               # pruebas
 ```
 
-### Scripts Disponibles
-- `npm start` - Servidor de desarrollo
-- `npm run build` - Construcción para producción
-- `npm run test` - Ejecutar pruebas
-- `npm run watch` - Construcción en modo watch
+## Capacitor (Android/iOS)
 
-## 🏗️ Arquitectura de la Aplicación
+Capacitor ya está integrado. Archivo: `capacitor.config.ts` con `webDir: dist/todo-app/browser`.
 
-### Patrón Repository
-La aplicación utiliza el patrón Repository para abstraer la fuente de datos:
-
-```typescript
-// Interfaz del repositorio
-interface ITodoRepository {
-  getAll(filters?: TodoFilters): Observable<Todo[]>;
-  create(todo: TodoCreateRequest): Observable<Todo>;
-  update(id: string, todo: TodoUpdateRequest): Observable<Todo>;
-  delete(id: string): Observable<boolean>;
-  // ... más métodos
-}
-```
-
-### Servicios Centralizados
-- **TodoService**: Gestiona toda la lógica de negocio
-- **Estado reactivo**: Utiliza RxJS para manejo de estado
-- **Filtros en tiempo real**: Actualización automática de vistas
-
-### Componentes Modulares
-- **Standalone Components**: Cada componente es independiente
-- **Comunicación por eventos**: Input/Output para comunicación
-- **Reutilización**: Componentes diseñados para ser reutilizables
-
-## 📱 Preparación para Capacitor
-
-La aplicación está diseñada pensando en la conversión a app móvil:
-
-### Características Mobile-First
-- **Diseño responsive** con breakpoints móviles
-- **Touch-friendly** con áreas de toque apropiadas
-- **Gestos nativos** preparados para implementación
-- **Optimización de rendimiento** para dispositivos móviles
-
-### Futuras Implementaciones
-- **Sincronización con API** backend
-- **Notificaciones push** para tareas vencidas
-- **Modo offline** con sincronización automática
-- **Integración con calendario** del dispositivo
-
-## 🎯 Funcionalidades Detalladas
-
-### Gestión de Tareas
-- ✅ Crear tareas con título, descripción, prioridad y categoría
-- ✅ Marcar tareas como completadas
-- ✅ Editar tareas existentes
-- ✅ Eliminar tareas con confirmación
-- ✅ Fechas límite con alertas visuales
-
-### Filtros y Búsqueda
-- 🔍 Búsqueda por texto en título y descripción
-- 🏷️ Filtro por categorías
-- ⚡ Filtro por prioridad
-- 📊 Filtro por estado (completadas/pendientes)
-- 🧹 Limpiar filtros activos
-
-### Estadísticas
-- 📈 Progreso general de completación
-- 📊 Contador de tareas por estado
-- ⚠️ Tareas urgentes pendientes
-- 📅 Tareas próximas a vencer
-
-## 🔧 Configuración para Desarrollo
-
-### Variables de Entorno
+### Instalación inicial de plataformas (una sola vez)
 ```bash
-# Crear archivo .env para configuración local
-API_URL=http://localhost:3000/api
-ENVIRONMENT=development
+npm i @capacitor/android @capacitor/ios
+npx cap add android
+npx cap add ios
 ```
 
-### Configuración de Tailwind
-La aplicación utiliza Tailwind CSS v4 con configuración personalizada en `styles.css`.
-
-## 🧪 Testing
-
+### Flujo de actualización tras cambios en la web
 ```bash
-# Ejecutar pruebas unitarias
-npm run test
+# 1) Compilar Angular a producción
+npm run build:prod
 
-# Ejecutar pruebas con coverage
-npm run test:coverage
+# 2) Sincronizar Capacitor (ambas plataformas)
+npx cap sync
 
-# Ejecutar pruebas e2e
-npm run e2e
+# (opcional) Si no cambian plugins nativos, solo copiar assets
+npx cap copy
 ```
 
-## 📦 Despliegue
-
-### Producción
+### Abrir proyectos nativos
 ```bash
-# Construir para producción
-npm run build
-
-# Los archivos se generan en dist/todo-app/
+npm run cap:android   # abre Android Studio
+npm run cap:ios       # abre Xcode (en macOS)
 ```
 
-### Docker (Opcional)
-```dockerfile
-FROM nginx:alpine
-COPY dist/todo-app /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+### Diagnóstico
+```bash
+npx cap doctor
 ```
 
-## 🤝 Contribución
+### Notas para Windows
+- Ejecutar comandos de Capacitor en PowerShell o CMD (evitar Git Bash) para prevenir errores como `spawn EINVAL`.
+- Si aparece `The web assets directory must contain an index.html`, asegúrate de:
+  - `webDir` = `dist/todo-app/browser` en `capacitor.config.ts`
+  - Ejecutar `npm run build:prod` antes de `npx cap sync`.
 
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
+### Requisitos iOS (en macOS)
+- Instalar Xcode y abrirlo al menos una vez
+- Instalar CocoaPods: `sudo gem install cocoapods` o `brew install cocoapods`
+- Luego: `npx cap sync ios && npm run cap:ios`
 
-## 📄 Licencia
+## Arquitectura (resumen)
+- Repository Pattern: capa de acceso a datos desacoplada (LocalStorage por defecto)
+- `TodoService`: orquesta estado y operaciones (RxJS)
+- Standalone Components modulares, UI limpia y accesible
 
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
-
-## 🆘 Soporte
-
-Para soporte y preguntas:
-- 📧 Email: soporte@taskmaster.com
-- 📱 Discord: [Servidor de la comunidad]
-- 📖 Documentación: [Wiki del proyecto]
-
-## 🗺️ Roadmap
-
-### Versión 1.1
-- [ ] Modo oscuro
-- [ ] Exportar/importar tareas
-- [ ] Subtareas y dependencias
-- [ ] Etiquetas personalizadas
-
-### Versión 1.2
-- [ ] Integración con Capacitor
-- [ ] Notificaciones push
-- [ ] Sincronización con API
-- [ ] Modo offline
-
-### Versión 2.0
-- [ ] Colaboración en tiempo real
-- [ ] Proyectos y equipos
-- [ ] Integración con calendarios
-- [ ] Analytics avanzados
+## Roadmap breve
+- Modo oscuro
+- Subtareas y etiquetas
+- Notificaciones push (Capacitor)
+- Sincronización con API y modo offline
 
 ---
 
-**TaskMaster** - Organiza tu vida, una tarea a la vez ✨
+TaskMaster — Organiza tu vida, una tarea a la vez ✨
