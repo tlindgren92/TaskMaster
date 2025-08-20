@@ -1,0 +1,72 @@
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">TaskMaster</h1>
+      <p class="text-gray-600">Organiza tu vida, una tarea a la vez</p>
+    </div>
+
+    <!-- Stats Component -->
+    <app-todo-stats class="mb-6"></app-todo-stats>
+
+    <!-- Filters Component -->
+    <app-todo-filters
+      [categories]="categories"
+      (filtersChange)="onFiltersChange($event)"
+      (clearFilters)="onClearFilters()"
+      class="mb-6">
+    </app-todo-filters>
+
+    <!-- Add Todo Form -->
+    <app-todo-form class="mb-6"></app-todo-form>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="flex justify-center items-center py-8">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+
+    <!-- Todo List -->
+    <div *ngIf="!loading" class="space-y-4">
+      <!-- Empty State -->
+      <div *ngIf="todos.length === 0" class="text-center py-12">
+        <div class="text-gray-400 mb-4">
+          <svg class="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No hay tareas</h3>
+        <p class="text-gray-500">¡Comienza agregando tu primera tarea!</p>
+      </div>
+
+      <!-- Todo Items -->
+      <div *ngFor="let todo of todos" class="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+        <app-todo-item
+          [todo]="todo"
+          (toggleComplete)="onToggleComplete($event)"
+          (delete)="onDeleteTodo($event)"
+          (update)="onUpdateTodo($event)">
+        </app-todo-item>
+      </div>
+    </div>
+
+    <!-- Completed Todos Section -->
+    <div *ngIf="getCompletedTodos().length > 0" class="mt-8">
+      <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        Tareas Completadas
+      </h3>
+      <div class="space-y-2">
+        <div *ngFor="let todo of getCompletedTodos()" class="bg-gray-50 rounded-lg border border-gray-200">
+          <app-todo-item
+            [todo]="todo"
+            (toggleComplete)="onToggleComplete($event)"
+            (delete)="onDeleteTodo($event)"
+            (update)="onUpdateTodo($event)">
+          </app-todo-item>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

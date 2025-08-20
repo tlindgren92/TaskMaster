@@ -1,12 +1,15 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { TodoListComponent } from './components/todo-list/todo-list.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  standalone: true,
+  imports: [TodoListComponent],
+  template: `
+    <app-todo-list></app-todo-list>
+  `,
+  styles: []
 })
 export class AppComponent {
-  title = 'todo-app';
+  title = 'TaskMaster - Organiza tu vida';
 }
