@@ -154,6 +154,10 @@
     overflow: hidden;
   }
 
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Animaciones personalizadas */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
@@ -169,6 +173,31 @@
 
   .animate-xp-float {
     animation: xpFloat 1.5s ease-out forwards;
+  }
+
+  .animate-xp-rise {
+    animation: xpRise 1.5s ease-out forwards;
+  }
+
+  .animate-level-up-enter {
+    animation: levelUpEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .animate-achievement-slide {
+    animation: achievementSlide 4s ease-in-out forwards;
+  }
+
+  .animate-fire-glow {
+    animation: fireGlow 1.5s ease-in-out infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulseSlow 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background-size: 200% 100%;
   }
 }
 
@@ -195,6 +224,24 @@
   100% { opacity: 0; transform: translateY(-40px); }
 }
 
+@keyframes xpRise {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  40% {
+    transform: translateY(-10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(0.8);
+  }
+}
+
 @keyframes fireGlow {
   0%, 100% { filter: drop-shadow(0 0 4px #f97316); }
   50% { filter: drop-shadow(0 0 12px #ef4444); }
@@ -204,6 +251,46 @@
   0% { transform: scale(0); opacity: 0; }
   50% { transform: scale(1.2); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes levelUpEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.5) translateY(40px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes achievementSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(40px) scale(0.9);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px) scale(0.95);
+  }
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Estilos para dispositivos moviles */
