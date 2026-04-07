@@ -1,10 +1,11 @@
 import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HabitService } from '../../../../core/services/habit.service';
 import { GamificationService } from '../../../../core/services/gamification.service';
 import { UserService } from '../../../../core/services/user.service';
 import { XpBarComponent } from '../../../../shared/components/ui/xp-bar/xp-bar.component';
 import { ProgressBarComponent } from '../../../../shared/components/ui/progress-bar/progress-bar.component';
+import { ChallengeCardComponent } from '../../../../shared/components/ui/challenge-card/challenge-card.component';
 import { TodayHabitsComponent } from '../../components/today-habits/today-habits.component';
 import { StreakOverviewComponent } from '../../components/streak-overview/streak-overview.component';
 import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.component';
@@ -13,7 +14,8 @@ import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.co
   selector: 'app-dashboard-page',
   standalone: true,
   imports: [
-    XpBarComponent, ProgressBarComponent,
+    RouterLink,
+    XpBarComponent, ProgressBarComponent, ChallengeCardComponent,
     TodayHabitsComponent, StreakOverviewComponent, QuickStatsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,6 +45,21 @@ import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.co
         </div>
         <app-progress-bar [value]="habitService.todayProgress()" [showLabel]="false" color="indigo" />
       </div>
+
+      <!-- Active challenges -->
+      @if (gamificationService.activeChallenges().length > 0) {
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-semibold text-gray-900">Desafios activos</h2>
+            <a routerLink="/achievements" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver todos</a>
+          </div>
+          <div class="space-y-3">
+            @for (challenge of gamificationService.activeChallenges(); track challenge.id) {
+              <app-challenge-card [challenge]="challenge" />
+            }
+          </div>
+        </div>
+      }
 
       <!-- Today's habits -->
       <app-today-habits (habitToggled)="onHabitToggled($event)" />
@@ -87,6 +104,7 @@ export class DashboardPageComponent implements OnInit {
       if (result.xpEarned > 0) {
         this.gamificationService.awardXP(result.xpEarned, 'Habito completado');
         this.checkAchievements();
+        this.checkChallenges();
       }
     }
   }
@@ -104,5 +122,17 @@ export class DashboardPageComponent implements OnInit {
       perfectWeeks: 0,
       perfectMonths: 0,
     });
+  }
+
+  private checkChallenges(): void {
+    const stats = this.habitService.habitsWithStats();
+    const todayCompleted = this.habitService.todayHabitsWithStats().filter(h => h.completedToday).length;
+    const maxStreak = Math.max(0, ...stats.map(h => h.streak.currentStreak));
+
+    this.gamificationService.checkChallengeProgress(
+      todayCompleted,
+      this.habitService.completions().length,
+      maxStreak
+    );
   }
 }
