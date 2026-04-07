@@ -1,4 +1,5 @@
 import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { HabitService } from '../../../../core/services/habit.service';
 import { GamificationService } from '../../../../core/services/gamification.service';
 import {
@@ -22,7 +23,7 @@ import { FormsModule } from '@angular/forms';
   selector: 'app-habits-page',
   standalone: true,
   imports: [
-    FormsModule,
+    FormsModule, RouterLink,
     StreakCounterComponent,
     ProgressBarComponent,
     EmptyStateComponent,
@@ -68,12 +69,10 @@ import { FormsModule } from '@angular/forms';
         </button>
       </div>
 
-      <!-- Loading -->
       @if (habitService.loading()) {
         <app-loading-spinner message="Cargando habitos..." />
       }
 
-      <!-- Habit list -->
       @if (!habitService.loading()) {
         @if (filteredHabits().length === 0) {
           <app-empty-state
@@ -85,9 +84,8 @@ import { FormsModule } from '@angular/forms';
         } @else {
           <div class="space-y-3">
             @for (habit of filteredHabits(); track habit.id) {
-              <div class="card p-4 hover:shadow-md transition-shadow">
+              <div class="card p-4 hover:shadow-md transition-shadow group">
                 <div class="flex items-start gap-3">
-                  <!-- Check -->
                   <button
                     (click)="toggleHabit(habit)"
                     class="mt-0.5 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0"
@@ -100,11 +98,10 @@ import { FormsModule } from '@angular/forms';
                       </svg>
                     }
                   </button>
-                  <!-- Content -->
-                  <div class="flex-1 min-w-0">
+                  <a [routerLink]="['/habits', habit.id]" class="flex-1 min-w-0 cursor-pointer">
                     <div class="flex items-center gap-2">
                       <span>{{ habit.icon }}</span>
-                      <h3 class="text-sm font-semibold text-gray-900 truncate"
+                      <h3 class="text-sm font-semibold text-gray-900 truncate group-hover:text-indigo-600 transition-colors"
                           [class.line-through]="habit.completedToday">
                         {{ habit.title }}
                       </h3>
@@ -119,28 +116,21 @@ import { FormsModule } from '@angular/forms';
                       </span>
                       <span class="text-xs text-gray-400">{{ getFrequencyLabel(habit.frequency) }}</span>
                     </div>
-                  </div>
-                  <!-- Right side: streak + actions -->
+                  </a>
                   <div class="flex flex-col items-end gap-2">
                     <app-streak-counter [streak]="habit.streak.currentStreak" [showLabel]="false" />
-                    <div class="flex items-center gap-1">
-                      <button
-                        (click)="deleteHabit(habit.id)"
-                        class="p-1 text-gray-400 hover:text-red-500 transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
-                    </div>
+                    <button
+                      (click)="deleteHabit(habit.id)"
+                      class="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
-                <!-- Completion rate -->
                 <div class="mt-3">
-                  <app-progress-bar
-                    [value]="habit.completionRate"
-                    label="Tasa de completado"
-                    size="sm" />
+                  <app-progress-bar [value]="habit.completionRate" label="Tasa de completado" size="sm" />
                 </div>
               </div>
             }
@@ -153,22 +143,13 @@ import { FormsModule } from '@angular/forms';
         <form (ngSubmit)="createHabit()" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Titulo *</label>
-            <input
-              type="text"
-              class="input-field"
-              [(ngModel)]="newHabit.title"
-              name="title"
-              placeholder="Ej: Meditar 10 minutos"
-              required />
+            <input type="text" class="input-field" [(ngModel)]="newHabit.title" name="title"
+              placeholder="Ej: Meditar 10 minutos" required />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Descripcion</label>
-            <textarea
-              class="input-field"
-              [(ngModel)]="newHabit.description"
-              name="description"
-              rows="2"
-              placeholder="Describe tu habito..."></textarea>
+            <textarea class="input-field" [(ngModel)]="newHabit.description" name="description"
+              rows="2" placeholder="Describe tu habito..."></textarea>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -250,6 +231,7 @@ export class HabitsPageComponent implements OnInit {
     this.habitService.createHabit(this.newHabit as HabitCreateRequest);
     this.showForm.set(false);
     this.resetForm();
+    this.checkAchievements();
   }
 
   toggleHabit(habit: HabitWithStats): void {
@@ -259,6 +241,7 @@ export class HabitsPageComponent implements OnInit {
       const result = this.habitService.completeHabit(habit.id);
       if (result.xpEarned > 0) {
         this.gamificationService.awardXP(result.xpEarned, 'Habito completado');
+        this.checkAchievements();
       }
     }
   }
@@ -277,5 +260,20 @@ export class HabitsPageComponent implements OnInit {
       frequency: HabitFrequency.DAILY,
       category: HabitCategory.CUSTOM,
     };
+  }
+
+  private checkAchievements(): void {
+    const stats = this.habitService.habitsWithStats();
+    const maxStreak = Math.max(0, ...stats.map(h => h.streak.currentStreak));
+
+    this.gamificationService.checkAchievements({
+      maxStreak,
+      totalCompletions: this.habitService.completions().length,
+      habitsCreated: this.habitService.activeHabits().length,
+      categoriesUsed: this.habitService.categories().length,
+      currentLevel: this.gamificationService.userLevel().level,
+      perfectWeeks: 0,
+      perfectMonths: 0,
+    });
   }
 }
