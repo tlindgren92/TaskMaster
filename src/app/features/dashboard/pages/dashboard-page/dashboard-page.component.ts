@@ -9,6 +9,8 @@ import { ChallengeCardComponent } from '../../../../shared/components/ui/challen
 import { TodayHabitsComponent } from '../../components/today-habits/today-habits.component';
 import { StreakOverviewComponent } from '../../components/streak-overview/streak-overview.component';
 import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.component';
+import { AIInsightCardComponent } from '../../components/ai-insight-card/ai-insight-card.component';
+import { AISuggestionsPanelComponent } from '../../components/ai-suggestions-panel/ai-suggestions-panel.component';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -17,6 +19,7 @@ import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.co
     RouterLink,
     XpBarComponent, ProgressBarComponent, ChallengeCardComponent,
     TodayHabitsComponent, StreakOverviewComponent, QuickStatsComponent,
+    AIInsightCardComponent, AISuggestionsPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -33,6 +36,9 @@ import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.co
       <div class="card p-4">
         <app-xp-bar />
       </div>
+
+      <!-- AI Insight -->
+      <app-ai-insight-card />
 
       <!-- Quick stats -->
       <app-quick-stats />
@@ -63,6 +69,9 @@ import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.co
 
       <!-- Today's habits -->
       <app-today-habits (habitToggled)="onHabitToggled($event)" />
+
+      <!-- AI Suggestions -->
+      <app-ai-suggestions-panel />
 
       <!-- Best streaks -->
       <app-streak-overview />
