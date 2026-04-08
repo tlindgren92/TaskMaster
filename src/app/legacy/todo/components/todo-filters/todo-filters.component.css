@@ -1,0 +1,50 @@
+/* Estilos para el componente de filtros */
+.filter-container {
+  transition: all 0.2s ease-in-out;
+}
+
+.filter-input {
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.filter-input:focus {
+  transform: translateY(-1px);
+}
+
+/* Animación para los filtros activos */
+.active-filter {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Estilos para los badges de filtros activos */
+.filter-badge {
+  transition: all 0.2s ease-in-out;
+}
+
+.filter-badge:hover {
+  transform: scale(1.05);
+}
+
+.filter-badge button {
+  transition: color 0.2s ease-in-out;
+}
+
+.filter-badge button:hover {
+  transform: scale(1.2);
+}

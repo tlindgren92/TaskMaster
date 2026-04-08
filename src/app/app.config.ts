@@ -1,13 +1,25 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter } from '@angular/router';
-
+import { ApplicationConfig, provideZoneChangeDetection, APP_INITIALIZER } from '@angular/core';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import { routes } from './app.routes';
-import { TODO_REPOSITORY_PROVIDER } from './core/providers/todo.providers';
+import { APP_REPOSITORY_PROVIDERS } from './core/providers/app.providers';
+import { MigrationService } from './core/services/migration.service';
+
+function initializeMigration(migrationService: MigrationService) {
+  return () => migrationService.migrate();
+}
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
-    TODO_REPOSITORY_PROVIDER
-  ]
+    provideRouter(routes, withComponentInputBinding()),
+    provideHttpClient(withFetch()),
+    ...APP_REPOSITORY_PROVIDERS,
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeMigration,
+      deps: [MigrationService],
+      multi: true,
+    },
+  ],
 };

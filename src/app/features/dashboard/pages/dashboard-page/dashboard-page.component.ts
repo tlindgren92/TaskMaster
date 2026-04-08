@@ -1,0 +1,147 @@
+import { Component, inject, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { HabitService } from '../../../../core/services/habit.service';
+import { GamificationService } from '../../../../core/services/gamification.service';
+import { UserService } from '../../../../core/services/user.service';
+import { XpBarComponent } from '../../../../shared/components/ui/xp-bar/xp-bar.component';
+import { ProgressBarComponent } from '../../../../shared/components/ui/progress-bar/progress-bar.component';
+import { ChallengeCardComponent } from '../../../../shared/components/ui/challenge-card/challenge-card.component';
+import { TodayHabitsComponent } from '../../components/today-habits/today-habits.component';
+import { StreakOverviewComponent } from '../../components/streak-overview/streak-overview.component';
+import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.component';
+import { AIInsightCardComponent } from '../../components/ai-insight-card/ai-insight-card.component';
+import { AISuggestionsPanelComponent } from '../../components/ai-suggestions-panel/ai-suggestions-panel.component';
+
+@Component({
+  selector: 'app-dashboard-page',
+  standalone: true,
+  imports: [
+    RouterLink,
+    XpBarComponent, ProgressBarComponent, ChallengeCardComponent,
+    TodayHabitsComponent, StreakOverviewComponent, QuickStatsComponent,
+    AIInsightCardComponent, AISuggestionsPanelComponent,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="space-y-6 animate-fade-in">
+      <!-- Greeting -->
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">
+          {{ getGreeting() }}, {{ userService.displayName() }}
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">{{ getTodayDate() }}</p>
+      </div>
+
+      <!-- XP Bar -->
+      <div class="card p-4">
+        <app-xp-bar />
+      </div>
+
+      <!-- AI Insight -->
+      <app-ai-insight-card />
+
+      <!-- Quick stats -->
+      <app-quick-stats />
+
+      <!-- Today's progress -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-semibold text-gray-900">Progreso de hoy</h2>
+          <span class="text-sm font-medium text-indigo-600">{{ habitService.todayProgress() }}%</span>
+        </div>
+        <app-progress-bar [value]="habitService.todayProgress()" [showLabel]="false" color="indigo" />
+      </div>
+
+      <!-- Active challenges -->
+      @if (gamificationService.activeChallenges().length > 0) {
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-semibold text-gray-900">Desafios activos</h2>
+            <a routerLink="/achievements" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver todos</a>
+          </div>
+          <div class="space-y-3">
+            @for (challenge of gamificationService.activeChallenges(); track challenge.id) {
+              <app-challenge-card [challenge]="challenge" />
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Today's habits -->
+      <app-today-habits (habitToggled)="onHabitToggled($event)" />
+
+      <!-- AI Suggestions -->
+      <app-ai-suggestions-panel />
+
+      <!-- Best streaks -->
+      <app-streak-overview />
+    </div>
+  `,
+})
+export class DashboardPageComponent implements OnInit {
+  habitService = inject(HabitService);
+  gamificationService = inject(GamificationService);
+  userService = inject(UserService);
+  private router = inject(Router);
+
+  ngOnInit(): void {
+    this.habitService.loadHabits();
+    this.gamificationService.loadData();
+    this.userService.loadUser();
+  }
+
+  getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos dias';
+    if (hour < 18) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
+  getTodayDate(): string {
+    return new Date().toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  }
+
+  onHabitToggled(event: { id: string; completed: boolean }): void {
+    if (event.completed) {
+      this.habitService.uncompleteHabit(event.id);
+    } else {
+      const result = this.habitService.completeHabit(event.id);
+      if (result.xpEarned > 0) {
+        this.gamificationService.awardXP(result.xpEarned, 'Habito completado');
+        this.checkAchievements();
+        this.checkChallenges();
+      }
+    }
+  }
+
+  private checkAchievements(): void {
+    const stats = this.habitService.habitsWithStats();
+    const maxStreak = Math.max(0, ...stats.map(h => h.streak.currentStreak));
+
+    this.gamificationService.checkAchievements({
+      maxStreak,
+      totalCompletions: this.habitService.completions().length,
+      habitsCreated: this.habitService.activeHabits().length,
+      categoriesUsed: this.habitService.categories().length,
+      currentLevel: this.gamificationService.userLevel().level,
+      perfectWeeks: 0,
+      perfectMonths: 0,
+    });
+  }
+
+  private checkChallenges(): void {
+    const stats = this.habitService.habitsWithStats();
+    const todayCompleted = this.habitService.todayHabitsWithStats().filter(h => h.completedToday).length;
+    const maxStreak = Math.max(0, ...stats.map(h => h.streak.currentStreak));
+
+    this.gamificationService.checkChallengeProgress(
+      todayCompleted,
+      this.habitService.completions().length,
+      maxStreak
+    );
+  }
+}
