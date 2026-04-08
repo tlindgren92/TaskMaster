@@ -43,3 +43,5 @@ Thumbs.db
 
 # Custom
 .history
+/backend/node_modules
+.vscode
