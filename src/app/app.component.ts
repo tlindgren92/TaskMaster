@@ -5,6 +5,7 @@ import { ToastComponent } from './shared/components/ui/toast/toast.component';
 import { XpPopupComponent } from './shared/components/ui/xp-popup/xp-popup.component';
 import { LevelUpModalComponent } from './shared/components/ui/level-up-modal/level-up-modal.component';
 import { AchievementToastComponent } from './shared/components/ui/achievement-toast/achievement-toast.component';
+import { AICoachChatComponent } from './shared/components/ui/ai-coach-chat/ai-coach-chat.component';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +13,7 @@ import { AchievementToastComponent } from './shared/components/ui/achievement-to
   imports: [
     RouterOutlet, AppShellComponent, ToastComponent,
     XpPopupComponent, LevelUpModalComponent, AchievementToastComponent,
+    AICoachChatComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -22,6 +24,7 @@ import { AchievementToastComponent } from './shared/components/ui/achievement-to
     <app-xp-popup />
     <app-level-up-modal />
     <app-achievement-toast />
+    <app-ai-coach-chat />
   `,
 })
 export class AppComponent {}
