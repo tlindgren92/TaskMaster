@@ -1,6 +1,6 @@
 # TaskMaster — Plataforma de Habitos con IA y Gamificacion
 
-TaskMaster es una plataforma inteligente para adoptar buenos habitos y dejar malos habitos, potenciada con IA (Anthropic Claude) y un sistema de gamificacion con puntos canjeables por premios reales. Construida con Angular 19 y preparada para ejecutarse como app movil nativa con Capacitor.
+TaskMaster es una plataforma inteligente para adoptar buenos habitos y dejar malos habitos, potenciada con IA (Anthropic Claude / Google Gemini) y un sistema de gamificacion con puntos canjeables por premios reales. Construida con Angular 19 y preparada para ejecutarse como app movil nativa con Capacitor.
 
 ## Estado del proyecto
 
@@ -9,7 +9,7 @@ TaskMaster es una plataforma inteligente para adoptar buenos habitos y dejar mal
 | Fase 1 | Fundacion (arquitectura, routing, modelos) | Completada |
 | Fase 2 | Sistema de habitos (CRUD, rachas, calendario) | Completada |
 | Fase 3 | Gamificacion (XP, niveles, logros, desafios) | Completada |
-| Fase 4 | Integracion IA (Anthropic Claude) | Pendiente |
+| Fase 4 | Integracion IA (Anthropic Claude + Google Gemini) | Completada |
 | Fase 5 | Backend NestJS + Tienda de premios | Pendiente |
 | Fase 6 | Rendimiento, PWA y polish | Pendiente |
 
@@ -32,6 +32,15 @@ TaskMaster es una plataforma inteligente para adoptar buenos habitos y dejar mal
 - **Desafios semanales** generados automaticamente
 - **Puntos canjeables** que se ganan al subir de nivel
 - **Feedback visual**: popups de XP flotantes, modal de level-up con particulas, toasts de logros desbloqueados
+
+### Inteligencia Artificial
+- **Multi-proveedor**: Anthropic Claude y Google Gemini con cambio dinamico
+- **Insight diario**: analisis personalizado de tus habitos generado por IA
+- **Sugerencias IA**: recomendaciones de nuevos habitos basadas en tu perfil
+- **Coach IA**: chat conversacional para motivacion, consejos y analisis
+- **Fallback offline**: mensajes motivacionales y insights pre-construidos cuando no hay conexion
+- **Configuracion flexible**: elige proveedor, modelo y API key desde el perfil
+- **Modelos soportados**: Claude Sonnet 4, Claude Haiku 4.5, Gemini 2.0 Flash, Gemini 2.5 Pro/Flash
 
 ### Dashboard
 - Saludo personalizado con hora del dia
@@ -142,11 +151,10 @@ npx cap doctor
 
 ## Roadmap
 
-### Fase 4 — Integracion IA (Anthropic Claude)
-- Sugerencias inteligentes de habitos basadas en contexto
-- Insight diario personalizado
-- Coach motivacional con chat
-- Analisis de correlaciones entre habitos
+### Fase 4 — Integracion IA (Completada)
+- Multi-proveedor: Anthropic Claude + Google Gemini
+- Insight diario personalizado, sugerencias IA, coach chat
+- Configuracion de API keys desde el perfil
 - Fallback offline con templates pre-construidos
 
 ### Fase 5 — Backend NestJS + Tienda de premios
