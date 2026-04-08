@@ -183,3 +183,19 @@ npx cap doctor
 ---
 
 TaskMaster — Transforma tus habitos, transforma tu vida
+
+---
+
+## ☕ Apoya el proyecto / Support the project
+
+TaskMaster es y seguirá siendo un proyecto de código abierto. Sin embargo, mantener la infraestructura, cubrir los costos de las APIs de Inteligencia Artificial (Claude y Gemini) y dedicar tiempo a desarrollar nuevas funciones como la **Tienda de Premios Reales** requiere recursos.
+
+Si encuentras valor en esta herramienta y quieres ayudar a que siga creciendo, cualquier donación es enormemente agradecida.
+
+| Plataforma | Enlace |
+|------------|--------|
+| **PayPal** | [Haz una donación aquí](https://www.paypal.com/donate/?hosted_button_id=DQ6ZXFQMBALKL) |
+
+> **Nota:** Tu apoyo ayuda directamente a financiar los créditos de IA para que más usuarios puedan disfrutar de los insights personalizados y el Coach IA.
+
+---
