@@ -1,5 +1,7 @@
 # TaskMaster — Plataforma de Habitos con IA y Gamificacion
 
+<img width="1337" height="600" alt="image" src="https://github.com/user-attachments/assets/31142994-e4c9-4892-8e2e-1666146e61f3" />
+
 TaskMaster es una plataforma inteligente para adoptar buenos habitos y dejar malos habitos, potenciada con IA (Anthropic Claude / Google Gemini) y un sistema de gamificacion con puntos canjeables por premios reales. Construida con Angular 19 y preparada para ejecutarse como app movil nativa con Capacitor.
 
 ## Estado del proyecto
