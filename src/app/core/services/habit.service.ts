@@ -168,6 +168,18 @@ export class HabitService {
     return { xpEarned: totalXP, streakMilestone };
   }
 
+  updateCompletionNote(habitId: string, note: string): void {
+    const todayCompletions = this._completions().filter(
+      c => c.habitId === habitId && isToday(new Date(c.completedAt))
+    );
+    if (todayCompletions.length === 0) return;
+
+    const lastCompletion = todayCompletions[todayCompletions.length - 1];
+    this._completions.update(list =>
+      list.map(c => c.id === lastCompletion.id ? { ...c, note } : c)
+    );
+  }
+
   uncompleteHabit(habitId: string): void {
     const todayCompletions = this._completions().filter(
       c => c.habitId === habitId && isToday(new Date(c.completedAt))

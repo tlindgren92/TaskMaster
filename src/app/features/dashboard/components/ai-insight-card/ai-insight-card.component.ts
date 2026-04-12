@@ -91,6 +91,10 @@ export class AIInsightCardComponent implements OnInit {
   }
 
   refresh(): void {
+    if (this.habitService.loading()) {
+      setTimeout(() => this.refresh(), 150);
+      return;
+    }
     this.aiService.generateDailyInsight(this.buildContext());
   }
 
