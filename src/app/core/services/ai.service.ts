@@ -125,9 +125,10 @@ export class AIService {
 
     this.getProvider().sendConversation(systemPrompt, messages, config).pipe(
       tap(response => {
+        const cleanContent = this.sanitizeAIResponse(response.content);
         const assistantMsg: AIConversationMessage = {
           role: 'assistant',
-          content: response.content,
+          content: cleanContent || response.content,
           timestamp: new Date(),
         };
         this._chatMessages.update(msgs => [...msgs, assistantMsg]);
@@ -186,6 +187,8 @@ Reglas:
   private buildCoachSystemPrompt(context: AIPromptContext): string {
     return `${this.buildSystemPrompt()}
 
+IMPORTANTE: Responde siempre en texto natural conversacional. NUNCA respondas con JSON, bloques de codigo, ni backticks. Tu respuesta debe ser texto plano legible.
+
 Contexto actual del usuario:
 - Nivel: ${context.currentLevel}
 - Dia: ${context.dayOfWeek}
@@ -224,67 +227,101 @@ IMPORTANTE: Responde UNICAMENTE con el JSON puro, sin bloques de codigo markdown
   // ─── Private: Response parsers ───────────────────────────────
 
   /**
-   * Limpia bloques de codigo markdown (```json ... ```) del contenido de la respuesta.
+   * Limpia respuestas de IA: extrae contenido de bloques markdown,
+   * remueve backticks sueltos y texto residual.
    */
-  private stripMarkdownCodeBlocks(content: string): string {
-    return content
-      .replace(/```(?:json)?\s*/gi, '')
-      .replace(/```\s*/g, '')
-      .trim();
+  private sanitizeAIResponse(content: string): string {
+    if (!content?.trim()) return '';
+
+    let cleaned = content;
+
+    // Extraer contenido de code blocks (capturar lo de DENTRO del bloque)
+    const codeBlockMatch = cleaned.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      cleaned = codeBlockMatch[1];
+    }
+
+    // Remover backticks sueltos
+    cleaned = cleaned.replace(/`/g, '');
+
+    return cleaned.trim();
+  }
+
+  /**
+   * Extrae texto plano legible de contenido mezclado.
+   * Si el contenido parece JSON, devuelve '' para forzar fallback.
+   */
+  private extractPlainText(content: string): string {
+    const trimmed = content.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return '';
+    }
+    return trimmed
+      .replace(/\{[\s\S]*?\}/g, '')
+      .replace(/\[[\s\S]*?\]/g, '')
+      .trim()
+      .slice(0, 200);
   }
 
   private parseInsightResponse(response: AIResponse): AIInsight {
+    const cleaned = this.sanitizeAIResponse(response.content);
+
     try {
-      const cleaned = this.stripMarkdownCodeBlocks(response.content);
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleaned.match(/\{[\s\S]*?\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          id: 'ai_' + Date.now(),
-          type: parsed.type || 'positive_trend',
-          title: parsed.title || 'Insight del dia',
-          message: parsed.message || response.content,
-          createdAt: new Date(),
-        };
+        if (typeof parsed.title === 'string' && typeof parsed.message === 'string') {
+          return {
+            id: 'ai_' + Date.now(),
+            type: parsed.type || 'positive_trend',
+            title: parsed.title,
+            message: parsed.message,
+            createdAt: new Date(),
+          };
+        }
       }
     } catch (e) {
-      console.warn('[AI] Failed to parse insight JSON:', e, response.content);
+      console.warn('[AI] Parse insight failed:', e);
     }
 
+    const plainText = this.extractPlainText(cleaned);
     return {
       id: 'ai_' + Date.now(),
       type: 'positive_trend',
       title: 'Insight del dia',
-      message: this.stripMarkdownCodeBlocks(response.content).slice(0, 200),
+      message: plainText || 'Sigue construyendo tus habitos dia a dia.',
       createdAt: new Date(),
     };
   }
 
   private parseSuggestionsResponse(response: AIResponse): AISuggestion[] {
+    const cleaned = this.sanitizeAIResponse(response.content);
+
     try {
-      const cleaned = this.stripMarkdownCodeBlocks(response.content);
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+      const jsonMatch = cleaned.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as { title: string; description: string; type: string }[];
-        return parsed.map((s, i) => ({
-          id: `suggestion_${Date.now()}_${i}`,
-          type: (s.type as AISuggestion['type']) || 'new_habit',
-          title: s.title,
-          description: s.description,
-          confidence: 0.8,
-          createdAt: new Date(),
-          isDismissed: false,
-        }));
+        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0].title === 'string') {
+          return parsed.map((s, i) => ({
+            id: `suggestion_${Date.now()}_${i}`,
+            type: (s.type as AISuggestion['type']) || 'new_habit',
+            title: s.title,
+            description: s.description || '',
+            confidence: 0.8,
+            createdAt: new Date(),
+            isDismissed: false,
+          }));
+        }
       }
     } catch (e) {
-      console.warn('[AI] Failed to parse suggestions JSON:', e, response.content);
+      console.warn('[AI] Parse suggestions failed:', e);
     }
 
     return [{
       id: `suggestion_${Date.now()}`,
       type: 'new_habit',
-      title: 'Sugerencia',
-      description: this.stripMarkdownCodeBlocks(response.content).slice(0, 200),
+      title: 'Sugerencia del dia',
+      description: 'Intenta anadir un habito de 5 minutos a tu rutina manana.',
       confidence: 0.5,
       createdAt: new Date(),
       isDismissed: false,
