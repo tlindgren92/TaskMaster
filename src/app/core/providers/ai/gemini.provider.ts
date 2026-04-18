@@ -2,7 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, map, catchError } from 'rxjs';
 import { IAIProvider, AIValidationResult } from '../../interfaces/ai-provider.interface';
-import { AIProviderConfig, AIResponse, AIConversationMessage } from '../../../models/ai.model';
+import {
+  AIProviderConfig,
+  AIResponse,
+  AIConversationMessage,
+  AIToolCall,
+  AIToolDefinition,
+} from '../../../models/ai.model';
+import { toGeminiTools } from './tools';
 
 @Injectable({ providedIn: 'root' })
 export class GeminiProvider implements IAIProvider {
@@ -28,14 +35,28 @@ export class GeminiProvider implements IAIProvider {
     messages: AIConversationMessage[],
     config: AIProviderConfig,
   ): Observable<AIResponse> {
+    return this.post(systemPrompt, messages, [], config);
+  }
+
+  sendConversationWithTools(
+    systemPrompt: string,
+    messages: AIConversationMessage[],
+    tools: AIToolDefinition[],
+    config: AIProviderConfig,
+  ): Observable<AIResponse> {
+    return this.post(systemPrompt, messages, tools, config);
+  }
+
+  private post(
+    systemPrompt: string,
+    messages: AIConversationMessage[],
+    tools: AIToolDefinition[],
+    config: AIProviderConfig,
+  ): Observable<AIResponse> {
     const url = `${this.BASE_URL}/${config.model}:generateContent?key=${config.apiKey}`;
+    const contents = messages.map(m => this.toGeminiMessage(m));
 
-    const contents = messages.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    }));
-
-    const body = {
+    const body: Record<string, unknown> = {
       system_instruction: {
         parts: [{ text: systemPrompt }],
       },
@@ -45,15 +66,86 @@ export class GeminiProvider implements IAIProvider {
         temperature: 0.7,
       },
     };
+    if (tools.length > 0) {
+      body['tools'] = toGeminiTools(tools);
+    }
 
     return this.http.post<GeminiResponse>(url, body).pipe(
-      map(response => ({
-        content: response.candidates?.[0]?.content?.parts?.[0]?.text ?? '',
-        provider: 'gemini' as const,
-        model: config.model,
-        tokensUsed: response.usageMetadata?.totalTokenCount,
-      })),
+      map(response => this.parseResponse(response, config)),
     );
+  }
+
+  private toGeminiMessage(m: AIConversationMessage): unknown {
+    if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+      const parts: unknown[] = [];
+      if (m.content) parts.push({ text: m.content });
+      for (const call of m.toolCalls) {
+        parts.push({ functionCall: { name: call.name, args: call.args } });
+      }
+      return { role: 'model', parts };
+    }
+
+    if (m.role === 'user' && m.toolResults && m.toolResults.length > 0) {
+      const parts = m.toolResults.map(tr => ({
+        functionResponse: {
+          name: tr.toolName,
+          response: this.parseToolResultContent(tr.content, tr.isError),
+        },
+      }));
+      return { role: 'user', parts };
+    }
+
+    return {
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    };
+  }
+
+  private parseToolResultContent(content: string, isError?: boolean): Record<string, unknown> {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed && typeof parsed === 'object') {
+        return isError ? { error: parsed } : (parsed as Record<string, unknown>);
+      }
+    } catch {
+      // fall through
+    }
+    return isError ? { error: content } : { result: content };
+  }
+
+  private parseResponse(response: GeminiResponse, config: AIProviderConfig): AIResponse {
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    const textParts = parts.filter(p => typeof p.text === 'string');
+    const callParts = parts.filter(p => p.functionCall);
+
+    const content = textParts.map(p => p.text ?? '').join('\n').trim();
+    const toolCalls: AIToolCall[] = callParts.map((p, i) => ({
+      id: `gemini_call_${Date.now()}_${i}`,
+      name: p.functionCall!.name,
+      args: (p.functionCall!.args ?? {}) as Record<string, unknown>,
+    }));
+
+    const finish = response.candidates?.[0]?.finishReason;
+    const stopReason: AIResponse['stopReason'] = toolCalls.length > 0
+      ? 'tool_use'
+      : this.mapFinishReason(finish);
+
+    return {
+      content,
+      provider: 'gemini',
+      model: config.model,
+      tokensUsed: response.usageMetadata?.totalTokenCount,
+      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      stopReason,
+    };
+  }
+
+  private mapFinishReason(reason?: string): AIResponse['stopReason'] {
+    switch (reason) {
+      case 'STOP': return 'end_turn';
+      case 'MAX_TOKENS': return 'max_tokens';
+      default: return 'other';
+    }
   }
 
   validateApiKey(apiKey: string, model: string): Observable<AIValidationResult> {
@@ -82,7 +174,6 @@ export class GeminiProvider implements IAIProvider {
   private parseGeminiError(err: HttpErrorResponse): AIValidationResult {
     const status = err.status;
 
-    // Gemini error response structure
     const apiError = err.error?.error;
     const apiMessage = apiError?.message ?? err.message ?? 'Error desconocido';
     const apiStatus = apiError?.status ?? '';
@@ -144,12 +235,21 @@ export class GeminiProvider implements IAIProvider {
   }
 }
 
+interface GeminiPart {
+  text?: string;
+  functionCall?: {
+    name: string;
+    args?: Record<string, unknown>;
+  };
+}
+
 interface GeminiResponse {
   candidates?: {
     content: {
-      parts: { text: string }[];
+      parts: GeminiPart[];
       role: string;
     };
+    finishReason?: string;
   }[];
   usageMetadata?: {
     promptTokenCount: number;

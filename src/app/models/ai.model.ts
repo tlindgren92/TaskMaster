@@ -75,6 +75,56 @@ export interface AIConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  toolCalls?: AIToolCall[];
+  toolResults?: AIToolResult[];
+  actionChips?: AIActionChip[];
+  isStreaming?: boolean;
+}
+
+// ─── Tool-use (Claude Tools API + Gemini Function Calling) ───────
+
+export interface AIToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: 'object';
+    properties: Record<string, AIToolProperty>;
+    required?: string[];
+  };
+}
+
+export interface AIToolProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  description?: string;
+  enum?: string[];
+  items?: AIToolProperty;
+  properties?: Record<string, AIToolProperty>;
+}
+
+export interface AIToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface AIToolResult {
+  toolCallId: string;
+  toolName: string;
+  content: string;
+  isError?: boolean;
+}
+
+export type AIActionChipStatus = 'pending' | 'success' | 'error';
+
+export interface AIActionChip {
+  id: string;
+  toolName: string;
+  icon: string;
+  summary: string;
+  status: AIActionChipStatus;
+  resourceId?: string;
+  resourceRoute?: string;
+  errorMessage?: string;
 }
 
 export interface AIPromptContext {
@@ -100,6 +150,8 @@ export interface AIResponse {
   provider: AIProviderType;
   model: string;
   tokensUsed?: number;
+  toolCalls?: AIToolCall[];
+  stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'other';
 }
 
 // ─── Offline Fallback Templates ──────────────────────────────────

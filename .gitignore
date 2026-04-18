@@ -46,3 +46,4 @@ Thumbs.db
 /backend/node_modules
 .vscode
 docs
+.claude

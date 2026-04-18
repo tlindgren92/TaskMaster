@@ -11,6 +11,7 @@ import { StreakOverviewComponent } from '../../components/streak-overview/streak
 import { QuickStatsComponent } from '../../components/quick-stats/quick-stats.component';
 import { AIInsightCardComponent } from '../../components/ai-insight-card/ai-insight-card.component';
 import { AISuggestionsPanelComponent } from '../../components/ai-suggestions-panel/ai-suggestions-panel.component';
+import { HabitInsightEngineService } from '../../../../core/services/habit-insight-engine.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -83,6 +84,7 @@ export class DashboardPageComponent implements OnInit {
   gamificationService = inject(GamificationService);
   userService = inject(UserService);
   private router = inject(Router);
+  private insightEngine = inject(HabitInsightEngineService);
 
   ngOnInit(): void {
     this.habitService.loadHabits();
@@ -128,8 +130,8 @@ export class DashboardPageComponent implements OnInit {
       habitsCreated: this.habitService.activeHabits().length,
       categoriesUsed: this.habitService.categories().length,
       currentLevel: this.gamificationService.userLevel().level,
-      perfectWeeks: 0,
-      perfectMonths: 0,
+      perfectWeeks: this.insightEngine.perfectWeeks(),
+      perfectMonths: this.insightEngine.perfectMonths(),
     });
   }
 

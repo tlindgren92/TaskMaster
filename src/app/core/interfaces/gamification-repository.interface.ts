@@ -12,6 +12,7 @@ export interface IGamificationRepository {
   updateAchievementProgress(achievementId: string, progress: number): Observable<Achievement>;
 
   getChallenges(): Observable<Challenge[]>;
+  saveChallenges(challenges: Challenge[]): Observable<Challenge[]>;
   updateChallengeProgress(challengeId: string, progress: number): Observable<Challenge>;
 
   getRewards(): Observable<Reward[]>;

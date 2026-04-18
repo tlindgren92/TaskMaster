@@ -1,12 +1,15 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
-import { Observable, catchError, of, tap } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import { Observable, catchError, of, tap, switchMap, forkJoin } from 'rxjs';
 import {
   AISuggestion,
   AIInsight,
   AIConversationMessage,
   AIPromptContext,
   AIProviderType,
+  AIProviderConfig,
   AIResponse,
+  AIToolResult,
+  AIActionChip,
   HabitRecommendation,
   OFFLINE_INSIGHTS,
   OFFLINE_MOTIVATIONAL,
@@ -19,6 +22,21 @@ import { AnthropicProvider } from '../providers/ai/anthropic.provider';
 import { GeminiProvider } from '../providers/ai/gemini.provider';
 import { AIConfigService } from './ai-config.service';
 import { NotificationService } from './notification.service';
+import { HabitInsightEngineService } from './habit-insight-engine.service';
+import { AIActionDispatcherService } from './ai-action-dispatcher.service';
+import { AI_TOOL_CATALOG } from '../providers/ai/tools';
+import {
+  buildCoachSystemPrompt,
+  COACH_BASE_SYSTEM,
+  RECOMMENDATION_BASE_SYSTEM,
+  buildInsightPrompt,
+  buildSuggestionsPrompt,
+  buildRecommendationPrompt,
+  buildMissedHabitPrompt,
+} from '../prompts';
+
+const CHAT_TOOL_MAX_TOKENS = 2048;
+const MAX_TOOL_TURNS = 5;
 
 @Injectable({ providedIn: 'root' })
 export class AIService {
@@ -26,8 +44,9 @@ export class AIService {
   private geminiProvider = inject(GeminiProvider);
   private configService = inject(AIConfigService);
   private notificationService = inject(NotificationService);
+  private insightEngine = inject(HabitInsightEngineService);
+  private actionDispatcher = inject(AIActionDispatcherService);
 
-  // State
   private _suggestions = signal<AISuggestion[]>([]);
   private _dailyInsight = signal<AIInsight | null>(null);
   private _chatMessages = signal<AIConversationMessage[]>([]);
@@ -66,8 +85,9 @@ export class AIService {
 
     this._loading.set(true);
 
-    const systemPrompt = this.buildSystemPrompt();
-    const userMessage = this.buildInsightPrompt(context, previousMessage);
+    const snapshot = this.insightEngine.snapshot();
+    const systemPrompt = COACH_BASE_SYSTEM;
+    const userMessage = buildInsightPrompt(context, previousMessage, snapshot);
 
     this.getProvider().sendMessage(systemPrompt, userMessage, config).pipe(
       tap(response => {
@@ -94,8 +114,9 @@ export class AIService {
 
     this._loading.set(true);
 
-    const systemPrompt = this.buildSystemPrompt();
-    const userMessage = this.buildSuggestionsPrompt(context);
+    const snapshot = this.insightEngine.snapshot();
+    const systemPrompt = COACH_BASE_SYSTEM;
+    const userMessage = buildSuggestionsPrompt(context, snapshot);
 
     this.getProvider().sendMessage(systemPrompt, userMessage, config).pipe(
       tap(response => {
@@ -111,7 +132,7 @@ export class AIService {
     ).subscribe();
   }
 
-  // ─── Coach Chat ──────────────────────────────────────────────
+  // ─── Coach Chat (con tool-use) ───────────────────────────────
 
   sendChatMessage(message: string, context: AIPromptContext): void {
     const config = this.configService.activeProviderConfig();
@@ -125,25 +146,16 @@ export class AIService {
       content: message,
       timestamp: new Date(),
     };
-
     this._chatMessages.update(msgs => [...msgs, userMsg]);
     this._chatLoading.set(true);
 
-    const systemPrompt = this.buildCoachSystemPrompt(context);
-    const messages = this._chatMessages();
+    const snapshot = this.insightEngine.snapshot();
+    const systemPrompt = buildCoachSystemPrompt(context, snapshot);
+    const toolConfig: AIProviderConfig = { ...config, maxTokens: Math.max(config.maxTokens, CHAT_TOOL_MAX_TOKENS) };
 
-    this.getProvider().sendConversation(systemPrompt, messages, config).pipe(
-      tap(response => {
-        const cleanContent = this.sanitizeAIResponse(response.content);
-        const assistantMsg: AIConversationMessage = {
-          role: 'assistant',
-          content: cleanContent || response.content,
-          timestamp: new Date(),
-        };
-        this._chatMessages.update(msgs => [...msgs, assistantMsg]);
-        this._chatLoading.set(false);
-      }),
-      catchError(() => {
+    this.runToolLoop(systemPrompt, toolConfig, 0).subscribe({
+      next: () => this._chatLoading.set(false),
+      error: () => {
         const fallbackMsg: AIConversationMessage = {
           role: 'assistant',
           content: this.getMotivationalMessage(),
@@ -151,9 +163,65 @@ export class AIService {
         };
         this._chatMessages.update(msgs => [...msgs, fallbackMsg]);
         this._chatLoading.set(false);
-        return of(null);
+      },
+    });
+  }
+
+  private runToolLoop(systemPrompt: string, config: AIProviderConfig, turn: number): Observable<void> {
+    if (turn >= MAX_TOOL_TURNS) {
+      const cappedMsg: AIConversationMessage = {
+        role: 'assistant',
+        content: 'Alcance el limite de acciones por turno. Dime si quieres que continue con algo especifico.',
+        timestamp: new Date(),
+      };
+      this._chatMessages.update(msgs => [...msgs, cappedMsg]);
+      return of(undefined);
+    }
+
+    const messages = this._chatMessages();
+    return this.getProvider().sendConversationWithTools(systemPrompt, messages, AI_TOOL_CATALOG, config).pipe(
+      switchMap(response => {
+        const cleanContent = this.sanitizeAIResponse(response.content);
+        const toolCalls = response.toolCalls ?? [];
+
+        const assistantMsg: AIConversationMessage = {
+          role: 'assistant',
+          content: cleanContent || response.content || '',
+          timestamp: new Date(),
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        };
+
+        if (toolCalls.length === 0) {
+          this._chatMessages.update(msgs => [...msgs, assistantMsg]);
+          return of(undefined);
+        }
+
+        return forkJoin(toolCalls.map(call => this.actionDispatcher.execute(call))).pipe(
+          switchMap(outcomes => {
+            const chips: AIActionChip[] = outcomes.map(o => o.chip);
+            const toolResults: AIToolResult[] = outcomes.map(o => o.toolResult);
+
+            this._chatMessages.update(msgs => [
+              ...msgs,
+              { ...assistantMsg, actionChips: chips },
+            ]);
+
+            const toolResultMsg: AIConversationMessage = {
+              role: 'user',
+              content: '',
+              timestamp: new Date(),
+              toolResults,
+            };
+            this._chatMessages.update(msgs => [...msgs, toolResultMsg]);
+
+            if (response.stopReason !== 'tool_use') {
+              return of(undefined);
+            }
+            return this.runToolLoop(systemPrompt, config, turn + 1);
+          }),
+        );
       }),
-    ).subscribe();
+    );
   }
 
   clearChat(): void {
@@ -177,8 +245,8 @@ export class AIService {
 
     this._recommendationLoading.set(true);
 
-    const systemPrompt = this.buildRecommendationSystemPrompt();
-    const userMessage = this.buildRecommendationPrompt(habit, reflection);
+    const systemPrompt = RECOMMENDATION_BASE_SYSTEM;
+    const userMessage = buildRecommendationPrompt(habit, reflection);
 
     this.getProvider().sendMessage(systemPrompt, userMessage, config).pipe(
       tap(response => {
@@ -210,8 +278,8 @@ export class AIService {
 
     this._recommendationLoading.set(true);
 
-    const systemPrompt = this.buildRecommendationSystemPrompt();
-    const userMessage = this.buildMissedHabitPrompt(habit);
+    const systemPrompt = RECOMMENDATION_BASE_SYSTEM;
+    const userMessage = buildMissedHabitPrompt(habit);
 
     this.getProvider().sendMessage(systemPrompt, userMessage, config).pipe(
       tap(response => {
@@ -238,121 +306,28 @@ export class AIService {
     this._activeRecommendation.set(null);
   }
 
-  // ─── Motivational (offline) ──────────────────────────────────
-
   getMotivationalMessage(): string {
     return OFFLINE_MOTIVATIONAL[Math.floor(Math.random() * OFFLINE_MOTIVATIONAL.length)];
   }
-
-  // ─── Validate API Key ────────────────────────────────────────
 
   validateApiKey(provider: AIProviderType, apiKey: string, model: string): Observable<AIValidationResult> {
     return this.getProvider(provider).validateApiKey(apiKey, model);
   }
 
-  // ─── Private: Prompt builders ────────────────────────────────
+  // ─── Response parsing helpers ────────────────────────────────
 
-  private formatHabitType(type: string): string {
-    return type === 'break' ? 'DEJAR/REDUCIR' : 'DESARROLLAR';
-  }
-
-  private formatHabitForPrompt(h: { title: string; category: string; type: string; streak: number; completionRate: number }): string {
-    return `${h.title} [${this.formatHabitType(h.type)}] (${h.category}, racha ${h.streak} dias, ${h.completionRate}% completado)`;
-  }
-
-  private buildSystemPrompt(): string {
-    return `Eres un coach de habitos inteligente y motivador integrado en la app "TaskMaster".
-Tu rol es ayudar al usuario a mejorar sus habitos, adoptar nuevos habitos positivos y dejar malos habitos.
-
-Reglas:
-- Responde SIEMPRE en espanol
-- Se conciso, maximo 2-3 parrafos
-- Usa un tono amigable, motivador pero no condescendiente
-- Basa tus consejos en evidencia cientifica cuando sea posible
-- Personaliza las respuestas segun el contexto del usuario (sus habitos, rachas, nivel)
-- Nunca inventes datos del usuario, usa solo lo que se te proporciona
-- Los habitos marcados como [DEJAR/REDUCIR] son habitos que el usuario quiere ELIMINAR o REDUCIR (ej: dejar de fumar, dejar de procrastinar). Completar estos habitos significa que el usuario RESISTIO la tentacion ese dia. Celebra que NO lo hizo.
-- Los habitos marcados como [DESARROLLAR] son habitos que el usuario quiere CREAR o MANTENER (ej: leer, meditar, hacer ejercicio). Completar estos habitos significa que el usuario lo HIZO ese dia.`;
-  }
-
-  private buildCoachSystemPrompt(context: AIPromptContext): string {
-    return `${this.buildSystemPrompt()}
-
-IMPORTANTE: Responde siempre en texto natural conversacional. NUNCA respondas con JSON, bloques de codigo, ni backticks. Tu respuesta debe ser texto plano legible.
-
-Contexto actual del usuario:
-- Nivel: ${context.currentLevel}
-- Dia: ${context.dayOfWeek}
-- Completados recientes: ${context.recentCompletions}
-- Objetivos: ${context.userGoals.join(', ') || 'No definidos'}
-- Habitos activos:
-${context.habits.map(h => `  * ${this.formatHabitForPrompt(h)}`).join('\n')}`;
-  }
-
-  private buildInsightPrompt(context: AIPromptContext, previousMessage?: string): string {
-    const previousSnippet = previousMessage
-      ? previousMessage.replace(/\s+/g, ' ').replace(/"/g, "'").slice(0, 180)
-      : '';
-
-    return `Genera un insight diario personalizado para el usuario.
-
-Contexto:
-- Dia: ${context.dayOfWeek}
-- Nivel: ${context.currentLevel}
-- Completados recientes: ${context.recentCompletions}
-- Objetivos: ${context.userGoals.join(', ') || 'No definidos'}
-- Habitos: ${context.habits.map(h => this.formatHabitForPrompt(h)).join('; ')}
-${previousSnippet ? `- Mensaje anterior (NO repetir literal): ${previousSnippet}` : '- Primera generacion del dia'}
-- Generacion: ${Date.now()}
-
-Reglas extra:
-- Debe estar basado en los habitos del contexto
-- Incluye al menos un detalle concreto (categoria, racha o tasa de completado)
-- Si hay mensaje anterior, cambia el angulo y evita frases identicas
-
-IMPORTANTE: Responde UNICAMENTE con el JSON puro, sin bloques de codigo markdown, sin backticks, sin texto adicional:
-{"title": "titulo corto del insight", "message": "mensaje de 1-2 oraciones maximo", "type": "positive_trend|streak_risk|habit_correlation|optimal_time|weekly_summary"}`;
-  }
-
-  private buildSuggestionsPrompt(context: AIPromptContext): string {
-    return `Sugiere 2-3 habitos que complementen los habitos actuales del usuario.
-
-Contexto:
-- Objetivos: ${context.userGoals.join(', ') || 'Mejorar en general'}
-- Habitos actuales: ${context.habits.map(h => `${h.title} [${this.formatHabitType(h.type)}] (${h.category})`).join(', ') || 'Ninguno'}
-- Nivel: ${context.currentLevel}
-
-IMPORTANTE: Responde UNICAMENTE con el JSON puro, sin bloques de codigo markdown, sin backticks, sin texto adicional:
-[{"title": "titulo del habito sugerido", "description": "por que este habito le beneficiaria (1 oracion)", "type": "new_habit|improvement"}]`;
-  }
-
-  // ─── Private: Response parsers ───────────────────────────────
-
-  /**
-   * Limpia respuestas de IA: extrae contenido de bloques markdown,
-   * remueve backticks sueltos y texto residual.
-   */
   private sanitizeAIResponse(content: string): string {
     if (!content?.trim()) return '';
 
     let cleaned = content;
-
-    // Extraer contenido de code blocks (capturar lo de DENTRO del bloque)
     const codeBlockMatch = cleaned.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)```/);
     if (codeBlockMatch) {
       cleaned = codeBlockMatch[1];
     }
-
-    // Remover backticks sueltos
     cleaned = cleaned.replace(/`/g, '');
-
     return cleaned.trim();
   }
 
-  /**
-   * Extrae texto plano legible de contenido mezclado.
-   * Si el contenido parece JSON, devuelve '' para forzar fallback.
-   */
   private extractPlainText(content: string): string {
     const trimmed = content.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -438,49 +413,6 @@ IMPORTANTE: Responde UNICAMENTE con el JSON puro, sin bloques de codigo markdown
       createdAt: new Date(),
       isDismissed: false,
     }];
-  }
-
-  private buildRecommendationSystemPrompt(): string {
-    return `Eres un coach de habitos integrado en la app "TaskMaster".
-
-Reglas:
-- Responde SIEMPRE en espanol
-- Responde en texto natural conversacional, maximo 2-3 oraciones
-- NUNCA uses JSON, bloques de codigo, backticks ni markdown
-- Se especifico y util, no generico
-- Basa tus consejos en informacion real y verificable
-- Usa un tono amigable y respetuoso`;
-  }
-
-  private buildRecommendationPrompt(habit: HabitWithStats, reflection?: string): string {
-    const typeLabel = habit.type === 'build' ? 'construir' : 'dejar/reducir';
-    return `El usuario acaba de completar su habito "${habit.title}" (categoria: ${habit.category}, tipo: ${typeLabel}).
-Racha actual: ${habit.streak.currentStreak} dias. Tasa de completado: ${habit.completionRate}%.
-${reflection ? `El usuario compartio: "${reflection}"` : 'El usuario no compartio detalles adicionales.'}
-
-Genera UNA recomendacion breve y personalizada:
-${reflection
-  ? '- Relaciona tu recomendacion directamente con lo que el usuario compartio\n- Si menciono un libro, recomienda algo similar. Si menciono ejercicio, sugiere variaciones o tips'
-  : '- Da un consejo practico y especifico para su categoria de habito'}
-- Se especifico y util, no generico
-- Maximo 2-3 oraciones
-
-IMPORTANTE: Solo texto natural, sin JSON, sin markdown, sin backticks.`;
-  }
-
-  private buildMissedHabitPrompt(habit: HabitWithStats): string {
-    return `El usuario tiene el habito "${habit.title}" (tipo: dejar/reducir, categoria: ${habit.category}).
-Hoy NO marco este habito como completado. Racha previa: ${habit.streak.currentStreak} dias.
-
-Genera un mensaje breve, empatico y objetivo:
-- NO asustar ni culpar al usuario
-- Comparte un dato informativo y positivo sobre los beneficios de mantener esta decision
-- Invita gentilmente a retomar manana
-- Tono: como un amigo que apoya, no como un doctor que regana
-- Se delicado, especialmente con temas de salud o adicciones
-- Maximo 2-3 oraciones
-
-IMPORTANTE: Solo texto natural, sin JSON, sin markdown, sin backticks.`;
   }
 
   private getOfflineReflectionTip(habit: HabitWithStats): HabitRecommendation {
