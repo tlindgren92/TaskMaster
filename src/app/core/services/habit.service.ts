@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
+import { Observable, tap } from 'rxjs';
 import {
   Habit,
   HabitCreateRequest,
@@ -138,6 +139,33 @@ export class HabitService {
     this.updateHabit(id, { isArchived: true });
   }
 
+  createHabitReturning(request: HabitCreateRequest): Observable<Habit> {
+    this._loading.set(true);
+    return this.habitRepo.create(request).pipe(
+      tap({
+        next: habit => {
+          this._habits.update(list => [...list, habit]);
+          this._loading.set(false);
+          this.notificationService.success('Habito creado', `"${habit.title}" listo para comenzar`);
+        },
+        error: () => this._loading.set(false),
+      }),
+    );
+  }
+
+  updateHabitReturning(id: string, request: HabitUpdateRequest): Observable<Habit> {
+    return this.habitRepo.update(id, request).pipe(
+      tap(updated => {
+        this._habits.update(list => list.map(h => h.id === id ? updated : h));
+        this.notificationService.success('Habito actualizado');
+      }),
+    );
+  }
+
+  archiveHabitReturning(id: string): Observable<Habit> {
+    return this.updateHabitReturning(id, { isArchived: true });
+  }
+
   completeHabit(habitId: string): { xpEarned: number; streakMilestone: boolean } {
     const habit = this._habits().find(h => h.id === habitId);
     if (!habit) return { xpEarned: 0, streakMilestone: false };
@@ -166,6 +194,18 @@ export class HabitService {
     });
 
     return { xpEarned: totalXP, streakMilestone };
+  }
+
+  updateCompletionNote(habitId: string, note: string): void {
+    const todayCompletions = this._completions().filter(
+      c => c.habitId === habitId && isToday(new Date(c.completedAt))
+    );
+    if (todayCompletions.length === 0) return;
+
+    const lastCompletion = todayCompletions[todayCompletions.length - 1];
+    this._completions.update(list =>
+      list.map(c => c.id === lastCompletion.id ? { ...c, note } : c)
+    );
   }
 
   uncompleteHabit(habitId: string): void {

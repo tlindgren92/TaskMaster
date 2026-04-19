@@ -45,3 +45,5 @@ Thumbs.db
 .history
 /backend/node_modules
 .vscode
+docs
+.claude

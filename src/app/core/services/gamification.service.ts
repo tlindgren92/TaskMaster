@@ -353,12 +353,10 @@ export class GamificationService {
       isActive: true,
     }));
 
-    // Save to storage
     const existing = this._challenges();
     const updated = [...existing.filter(c => c.isActive && !c.isCompleted), ...newChallenges];
     this._challenges.set(updated);
 
-    // Persist via repo (store all challenges)
-    localStorage.setItem('challenges', JSON.stringify(updated));
+    this.gamificationRepo.saveChallenges(updated).subscribe();
   }
 }

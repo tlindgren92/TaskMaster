@@ -1,5 +1,10 @@
 import { Observable } from 'rxjs';
-import { AIProviderConfig, AIResponse, AIConversationMessage } from '../../models/ai.model';
+import {
+  AIProviderConfig,
+  AIResponse,
+  AIConversationMessage,
+  AIToolDefinition,
+} from '../../models/ai.model';
 
 export interface AIValidationResult {
   valid: boolean;
@@ -24,6 +29,13 @@ export interface IAIProvider {
   sendConversation(
     systemPrompt: string,
     messages: AIConversationMessage[],
+    config: AIProviderConfig,
+  ): Observable<AIResponse>;
+
+  sendConversationWithTools(
+    systemPrompt: string,
+    messages: AIConversationMessage[],
+    tools: AIToolDefinition[],
     config: AIProviderConfig,
   ): Observable<AIResponse>;
 

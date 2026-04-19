@@ -122,6 +122,11 @@ export class GamificationLocalRepository implements IGamificationRepository {
     return of(challenges).pipe(delay(this.DELAY_MS));
   }
 
+  saveChallenges(challenges: Challenge[]): Observable<Challenge[]> {
+    localStorage.setItem(this.CHALLENGES_KEY, JSON.stringify(challenges));
+    return of(challenges).pipe(delay(this.DELAY_MS));
+  }
+
   updateChallengeProgress(challengeId: string, progress: number): Observable<Challenge> {
     const stored = localStorage.getItem(this.CHALLENGES_KEY);
     const challenges: Challenge[] = stored ? JSON.parse(stored) : [];

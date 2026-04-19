@@ -75,6 +75,56 @@ export interface AIConversationMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  toolCalls?: AIToolCall[];
+  toolResults?: AIToolResult[];
+  actionChips?: AIActionChip[];
+  isStreaming?: boolean;
+}
+
+// ─── Tool-use (Claude Tools API + Gemini Function Calling) ───────
+
+export interface AIToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: 'object';
+    properties: Record<string, AIToolProperty>;
+    required?: string[];
+  };
+}
+
+export interface AIToolProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  description?: string;
+  enum?: string[];
+  items?: AIToolProperty;
+  properties?: Record<string, AIToolProperty>;
+}
+
+export interface AIToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface AIToolResult {
+  toolCallId: string;
+  toolName: string;
+  content: string;
+  isError?: boolean;
+}
+
+export type AIActionChipStatus = 'pending' | 'success' | 'error';
+
+export interface AIActionChip {
+  id: string;
+  toolName: string;
+  icon: string;
+  summary: string;
+  status: AIActionChipStatus;
+  resourceId?: string;
+  resourceRoute?: string;
+  errorMessage?: string;
 }
 
 export interface AIPromptContext {
@@ -100,6 +150,8 @@ export interface AIResponse {
   provider: AIProviderType;
   model: string;
   tokensUsed?: number;
+  toolCalls?: AIToolCall[];
+  stopReason?: 'end_turn' | 'tool_use' | 'max_tokens' | 'stop_sequence' | 'other';
 }
 
 // ─── Offline Fallback Templates ──────────────────────────────────
@@ -154,3 +206,114 @@ export const OFFLINE_MOTIVATIONAL: string[] = [
   'Un habito no se puede simplemente desechar por la ventana; debe ser conducido escaleras abajo, paso a paso.',
   'Somos lo que hacemos repetidamente. La excelencia, entonces, no es un acto, sino un habito.',
 ];
+
+// ─── Habit Reflection & Contextual Recommendations ──────────────
+
+export interface HabitRecommendation {
+  id: string;
+  habitId: string;
+  title: string;
+  message: string;
+  type: 'tip' | 'resource' | 'encouragement' | 'fact';
+  createdAt: Date;
+}
+
+export const REFLECTION_PROMPTS: Record<string, {
+  build: { placeholder: string; icon: string };
+  break: { placeholder: string; icon: string };
+}> = {
+  learning:     { build: { placeholder: 'Que aprendiste o leiste hoy?', icon: '📖' },
+                  break: { placeholder: 'Como evitaste la distraccion?', icon: '🎯' } },
+  fitness:      { build: { placeholder: 'Que ejercicio hiciste?', icon: '💪' },
+                  break: { placeholder: 'Como te sentiste evitando el sedentarismo?', icon: '🚶' } },
+  health:       { build: { placeholder: 'Como cuidaste tu salud hoy?', icon: '🥗' },
+                  break: { placeholder: 'Como fue tu dia con esta decision?', icon: '💚' } },
+  mindfulness:  { build: { placeholder: 'Como te sientes despues?', icon: '🧘' },
+                  break: { placeholder: 'Que te ayudo a mantener la calma?', icon: '☮️' } },
+  productivity: { build: { placeholder: 'Que lograste hoy?', icon: '✅' },
+                  break: { placeholder: 'Que evitaste para ser mas productivo?', icon: '🚀' } },
+  social:       { build: { placeholder: 'Con quien conectaste?', icon: '👋' },
+                  break: { placeholder: 'Como fue tu desconexion?', icon: '🔇' } },
+  finance:      { build: { placeholder: 'Que accion financiera tomaste?', icon: '💰' },
+                  break: { placeholder: 'Que gasto evitaste hoy?', icon: '🛡️' } },
+  custom:       { build: { placeholder: 'Como te fue hoy?', icon: '✨' },
+                  break: { placeholder: 'Como fue tu progreso hoy?', icon: '📊' } },
+};
+
+export const OFFLINE_REFLECTION_TIPS: Record<string, string[]> = {
+  learning: [
+    'Intenta variar entre libros y articulos para mantener la curiosidad.',
+    'Compartir lo que aprendes con alguien refuerza tu memoria.',
+    'Dedicar solo 15 minutos al dia ya marca una diferencia enorme a largo plazo.',
+  ],
+  fitness: [
+    'La consistencia importa mas que la intensidad. Un paseo cuenta.',
+    'Alterna entre cardio y fuerza para equilibrar tu rutina.',
+    'Estirar despues del ejercicio reduce el dolor muscular significativamente.',
+  ],
+  health: [
+    'Recuerda que cada decision saludable cuenta, por pequena que sea.',
+    'Beber un vaso de agua antes de cada comida mejora la digestion.',
+    'Dormir bien es tan importante como comer bien y hacer ejercicio.',
+  ],
+  mindfulness: [
+    'Incluso 5 minutos de respiracion consciente reducen el estres notablemente.',
+    'La meditacion no es dejar de pensar, sino observar sin juzgar.',
+    'Practicar gratitud antes de dormir mejora la calidad del sueno.',
+  ],
+  productivity: [
+    'La tecnica Pomodoro (25 min trabajo, 5 min descanso) aumenta el enfoque.',
+    'Completa la tarea mas importante del dia primero, cuando tienes mas energia.',
+    'Organizar tu espacio de trabajo reduce la fatiga mental.',
+  ],
+  social: [
+    'Las conexiones genuinas se construyen con pequenos gestos constantes.',
+    'Escuchar activamente es el regalo mas valioso que puedes dar a alguien.',
+    'Un mensaje corto a alguien que aprecias puede alegrar su dia y el tuyo.',
+  ],
+  finance: [
+    'Registrar tus gastos es el primer paso para controlar tus finanzas.',
+    'La regla 50/30/20 es un buen punto de partida para tu presupuesto.',
+    'Automatizar tus ahorros elimina la necesidad de fuerza de voluntad.',
+  ],
+  custom: [
+    'Cada paso adelante, por pequeno que sea, te acerca a tu meta.',
+    'Celebra tus logros, incluso los mas pequenos.',
+    'La clave esta en la repeticion, no en la perfeccion.',
+  ],
+};
+
+export const OFFLINE_MISSED_NUDGES: Record<string, string[]> = {
+  learning: [
+    'Un dia sin leer no borra todo lo aprendido. Manana es una nueva pagina por abrir.',
+    'Tu cerebro sigue procesando lo que has aprendido antes, incluso cuando descansas.',
+  ],
+  fitness: [
+    'El descanso tambien es parte del entrenamiento. Manana tu cuerpo estara listo.',
+    'Una pausa no significa rendirse. Los atletas profesionales tambien descansan.',
+  ],
+  health: [
+    'Un dia no define tu camino. Lo importante es la direccion general, no cada paso individual.',
+    'Cuidar tu salud es un maraton, no un sprint. Sigue cuando estes listo.',
+  ],
+  mindfulness: [
+    'Esta bien tener dias agitados. Reconocer que lo necesitas ya es un acto de mindfulness.',
+    'La autocompasion es parte fundamental de la practica. Se amable contigo.',
+  ],
+  productivity: [
+    'Todos tenemos dias menos productivos. Son parte natural del ritmo de trabajo.',
+    'Descansar cuando lo necesitas te hace mas productivo a largo plazo.',
+  ],
+  social: [
+    'Conectar con otros tiene su propio ritmo. No hay que forzarlo cada dia.',
+    'A veces necesitamos tiempo a solas para poder dar lo mejor en nuestras relaciones.',
+  ],
+  finance: [
+    'Un dia sin revisar tus finanzas no cambia tu progreso general. Retoma manana.',
+    'La disciplina financiera se construye con el tiempo, no en un solo dia.',
+  ],
+  custom: [
+    'Un dia no define tu progreso. Manana es una nueva oportunidad para avanzar.',
+    'Lo importante no es no caer, sino levantarse. Tu compromiso sigue intacto.',
+  ],
+};

@@ -1,17 +1,18 @@
 import { Component, inject, signal, computed, ElementRef, viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AIService } from '../../../../core/services/ai.service';
 import { AIConfigService } from '../../../../core/services/ai-config.service';
 import { HabitService } from '../../../../core/services/habit.service';
 import { UserService } from '../../../../core/services/user.service';
 import { GamificationService } from '../../../../core/services/gamification.service';
-import { AIPromptContext } from '../../../../models/ai.model';
+import { AIPromptContext, AIConversationMessage, AIActionChip } from '../../../../models/ai.model';
 import { ModalComponent } from '../modal/modal.component';
 
 @Component({
   selector: 'app-ai-coach-chat',
   standalone: true,
-  imports: [FormsModule, ModalComponent],
+  imports: [FormsModule, ModalComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Floating chat button -->
@@ -55,14 +56,43 @@ import { ModalComponent } from '../modal/modal.component';
               </div>
             </div>
           } @else {
-            @for (msg of aiService.chatMessages(); track msg.timestamp) {
+            @for (msg of visibleMessages(); track $index) {
               <div class="flex" [class]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                 <div
                   class="max-w-[80%] rounded-2xl px-4 py-2.5"
                   [class]="msg.role === 'user'
                     ? 'bg-indigo-600 text-white rounded-br-md'
                     : 'bg-gray-100 text-gray-900 rounded-bl-md'">
-                  <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                  @if (msg.content) {
+                    <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                  }
+                  @if (msg.actionChips?.length) {
+                    <div class="flex flex-col gap-1.5" [class.mt-2]="!!msg.content">
+                      @for (chip of msg.actionChips; track chip.id) {
+                        @if (chip.resourceRoute) {
+                          <a
+                            [routerLink]="chip.resourceRoute"
+                            (click)="isOpen.set(false)"
+                            class="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors"
+                            [class]="chipClass(chip)">
+                            <span>{{ chip.icon }}</span>
+                            <span class="flex-1">{{ chip.summary }}</span>
+                            <span class="text-[10px] opacity-60">Abrir →</span>
+                          </a>
+                        } @else {
+                          <div
+                            class="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium"
+                            [class]="chipClass(chip)">
+                            <span>{{ chip.icon }}</span>
+                            <span class="flex-1">{{ chip.summary }}</span>
+                            @if (chip.errorMessage) {
+                              <span class="text-[10px] opacity-70">{{ chip.errorMessage }}</span>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
                   <p class="text-xs mt-1"
                      [class]="msg.role === 'user' ? 'text-indigo-200' : 'text-gray-400'">
                     {{ formatTime(msg.timestamp) }}
@@ -126,6 +156,23 @@ export class AICoachChatComponent {
 
   isOpen = signal(false);
   inputText = '';
+
+  visibleMessages = computed<AIConversationMessage[]>(() =>
+    this.aiService.chatMessages().filter(m =>
+      !(m.role === 'user' && m.toolResults && m.toolResults.length > 0 && !m.content)
+    )
+  );
+
+  chipClass(chip: AIActionChip): string {
+    switch (chip.status) {
+      case 'success':
+        return 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200';
+      case 'error':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-amber-100 text-amber-800';
+    }
+  }
 
   quickPrompts = [
     'Dame motivacion',
