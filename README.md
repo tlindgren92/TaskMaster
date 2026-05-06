@@ -8,7 +8,7 @@ TaskMaster is an intelligent platform for building good habits and breaking bad 
 - [Project status](#project-status)
 - [Highlights — Iter 1 elevation](#highlights--iter-1-elevation)
 - [Features](#features)
-  - [Habit system](#habit-system)
+  - [Habit system](#habit-system) 
   - [Gamification](#gamification)
   - [Artificial Intelligence](#artificial-intelligence)
   - [Dashboard](#dashboard)
